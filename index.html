@@ -17,12 +17,14 @@
       margin:0;
       background: radial-gradient(1200px 700px at 50% 30%, #111c33 0%, var(--bg) 60%);
       color:var(--text);
+      /* IMPORTANT: allow scrolling on mobile */
       height:auto;
       min-height:100%;
       overflow:auto;
       -webkit-overflow-scrolling: touch;
     }
 
+    /* Use min-height: 100svh for modern mobile browser sizing */
     .wrap{
       min-height: 100svh;
       display:flex;
@@ -82,7 +84,7 @@
       padding:18px;
       display:flex;
       flex-direction:column;
-      gap:12px;
+      gap:16px;
       min-height:460px;
     }
 
@@ -305,7 +307,7 @@
       font-size:13px;
       color: rgba(226,232,240,.86);
       line-height:1.35;
-      max-height: 260px;
+      max-height: 260px; /* helps mobile scrolling */
     }
     .log .item{ padding:8px 8px; border-bottom:1px dashed rgba(148,163,184,.18); }
     .log .item:last-child{ border-bottom:none; }
@@ -326,6 +328,7 @@
       text-transform:uppercase;
     }
 
+    /* MOBILE: stack columns and allow content to scroll */
     @media (max-width: 900px){
       .wrap{ align-items:flex-start; }
       .main{ grid-template-columns: 1fr; }
@@ -415,17 +418,11 @@
 
 <script>
 (() => {
-  // ---------------------------
-  // CONFIG
-  // ---------------------------
   const MATCH_MS = 60_000;
-  const DRIVER_CUES_ELAPSED_MS = [25_000, 35_000]; // elapsed time cues
+  const DRIVER_CUES_ELAPSED_MS = [25_000, 35_000];
   const AUTO_RESET_AFTER_MS = 1800;
   const VISUAL_COUNTDOWN_TOTAL_MS = 3000;
 
-  // ---------------------------
-  // STATE
-  // ---------------------------
   let running = false;
   let paused = false;
   let muted = false;
@@ -445,9 +442,6 @@
   // Wake Lock
   let wakeLock = null;
 
-  // ---------------------------
-  // DOM
-  // ---------------------------
   const timeText = document.getElementById('timeText');
   const remainLabel = document.getElementById('remainLabel');
   const nextCueLabel = document.getElementById('nextCueLabel');
@@ -470,62 +464,17 @@
   const fsBtn = document.getElementById('fsBtn');
   const muteBtn = document.getElementById('muteBtn');
 
-  // ---------------------------
-  // AUDIO (files are at same level as index.html)
-  // IMPORTANT: Use "./" to avoid GitHub Pages path weirdness.
-  // ---------------------------
-  const SOUND_URLS = {
-    start: './start-sequence-cue.mp3',
-    driver: './driver-switch-cue.mp3',
-    end: './end-buzzer-cue.mp3'
+  // Audio files live next to index.html
+  const SOUNDS = {
+    start: new Audio('./start-sequence-cue.mp3'),
+    driver: new Audio('./driver-switch-cue.mp3'),
+    end: new Audio('./end-buzzer-cue.mp3')
   };
 
-  function primeAudio() {
-    // Safe: DOES NOT play audio; only encourages fetch.
-    for (const url of Object.values(SOUND_URLS)) {
-      try {
-        const a = new Audio(url);
-        a.preload = 'auto';
-        a.load();
-      } catch {}
-    }
-  }
-
-  async function playSoundUrl(url, label='sound') {
-    if (muted) return true;
-    try {
-      // Fresh instance per play = far more reliable on iOS/Android
-      const a = new Audio(url);
-      a.preload = 'auto';
-      a.volume = 0.95;
-      a.currentTime = 0;
-      await a.play();
-      return true;
-    } catch (err) {
-      console.warn(`Audio play failed (${label}):`, err);
-      log(`Audio blocked/failed: ${label}`);
-      return false;
-    }
-  }
-
-  // ---------------------------
-  // HELPERS
-  // ---------------------------
-  function fmtClock(ms) {
-    ms = Math.max(0, ms);
-    const totalSec = Math.ceil(ms / 1000);
-    const m = Math.floor(totalSec / 60);
-    const s = totalSec % 60;
-    return `${m}:${String(s).padStart(2,'0')}`;
-  }
-
-  function fmtRemainLabel(ms) {
-    ms = Math.max(0, ms);
-    const totalSec = Math.ceil(ms / 1000);
-    const m = Math.floor(totalSec / 60);
-    const s = totalSec % 60;
-    return `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
-  }
+  Object.values(SOUNDS).forEach(a => {
+    a.preload = 'auto';
+    a.volume = 0.95;
+  });
 
   function log(msg) {
     const stamp = new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit', second:'2-digit'});
@@ -535,17 +484,61 @@
     logEl.prepend(div);
   }
 
+  function fmtClock(ms) {
+    ms = Math.max(0, ms);
+    const totalSec = Math.ceil(ms / 1000);
+    const m = Math.floor(totalSec / 60);
+    const s = totalSec % 60;
+    return `${m}:${String(s).padStart(2,'0')}`;
+  }
+  function fmtRemainLabel(ms) {
+    ms = Math.max(0, ms);
+    const totalSec = Math.ceil(ms / 1000);
+    const m = Math.floor(totalSec / 60);
+    const s = totalSec % 60;
+    return `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+  }
+
+  async function playSound(audio, label='sound') {
+    if (muted) return true;
+    if (!audio) return false;
+    try {
+      audio.currentTime = 0;
+      await audio.play();
+      return true;
+    } catch (err) {
+      console.warn(`Audio play failed (${label}):`, err);
+      log(`Audio blocked/failed: ${label}`);
+      return false;
+    }
+  }
+
+  // Mobile trick: unlock audio on first tap by briefly playing each sound.
+  // This hugely improves "only first sound plays" on iOS/Android.
+  async function unlockAudio() {
+    // must be called inside a user gesture (Start button)
+    for (const [k, a] of Object.entries(SOUNDS)) {
+      try {
+        a.muted = true;
+        a.currentTime = 0;
+        await a.play();
+        a.pause();
+        a.muted = false;
+      } catch {
+        // ignore; we'll still try later
+      }
+    }
+  }
+
   function setStatus(mode) {
     statusText.textContent = mode;
-
     const dotStyles = {
       READY:   {bg:'#22c55e', ring:'rgba(34,197,94,.18)', hint:'Tap START (or Space)'},
       STARTING:{bg:'#a855f7', ring:'rgba(168,85,247,.20)', hint:'Start sequence + 3..2..1…'},
-      RUNNING: {bg:'#3b82f6', ring:'rgba(59,130,246,.20)', hint:'Tap PAUSE • Tap Fullscreen for big view'},
+      RUNNING: {bg:'#3b82f6', ring:'rgba(59,130,246,.20)', hint:'Tap PAUSE • R to reset'},
       PAUSED:  {bg:'#f59e0b', ring:'rgba(245,158,11,.20)', hint:'Tap RESUME • R to reset'},
       ENDED:   {bg:'#ef4444', ring:'rgba(239,68,68,.20)', hint:'Auto-resetting…'}
     };
-
     const s = dotStyles[mode] || dotStyles.READY;
     statusDot.style.background = s.bg;
     statusDot.style.boxShadow = `0 0 0 6px ${s.ring}`;
@@ -593,17 +586,12 @@
 
   function updateNextCueLabel(elapsedMs) {
     const next = getNextDriverCue(elapsedMs);
-    if (!next) {
-      nextCueLabel.textContent = '—';
-      return;
-    }
+    if (!next) { nextCueLabel.textContent = '—'; return; }
     const sec = Math.round(next / 1000);
     nextCueLabel.textContent = `0:${String(sec).padStart(2,'0')}`;
   }
 
-  // ---------------------------
-  // WAKE LOCK
-  // ---------------------------
+  // Wake lock
   async function requestWakeLock() {
     try {
       if (!('wakeLock' in navigator)) {
@@ -613,28 +601,18 @@
       wakeLock = await navigator.wakeLock.request('screen');
       wlLabel.textContent = 'On';
       wakeLock.addEventListener('release', () => { wlLabel.textContent = 'Off'; });
-    } catch {
+    } catch (e) {
       wlLabel.textContent = 'Blocked';
-      log('Wake Lock blocked/unsupported on this browser (common on iPhone).');
+      log('Wake Lock blocked (ok on iOS).');
     }
   }
-
   async function releaseWakeLock() {
     try { await wakeLock?.release(); } catch {}
     wakeLock = null;
     if (wlLabel.textContent === 'On') wlLabel.textContent = 'Off';
   }
 
-  // If wake lock is active and the tab becomes visible again, re-request it
-  document.addEventListener('visibilitychange', async () => {
-    if (document.visibilityState === 'visible' && running && !wakeLock) {
-      await requestWakeLock();
-    }
-  });
-
-  // ---------------------------
-  // VISUAL 3..2..1 COUNTDOWN
-  // ---------------------------
+  // Visual countdown
   function startVisualCountdown() {
     stopVisualCountdown();
     countdownStartPerf = performance.now();
@@ -653,17 +631,12 @@
   }
 
   function stopVisualCountdown() {
-    if (countdownInterval) {
-      clearInterval(countdownInterval);
-      countdownInterval = null;
-    }
+    if (countdownInterval) clearInterval(countdownInterval);
+    countdownInterval = null;
     startCountdownEl.classList.remove('show');
     startCountdownEl.textContent = '';
   }
 
-  // ---------------------------
-  // RESET
-  // ---------------------------
   function resetAll({silent=false} = {}) {
     running = false;
     paused = false;
@@ -687,55 +660,30 @@
     if (!silent) log('Reset. Ready for next match.');
   }
 
-  // ---------------------------
-  // MATCH FLOW
-  // ---------------------------
   async function startSequenceThenMatch() {
     if (running || startSequencePlaying) return;
 
-    // Prime fetch (no playback) + try to keep screen awake
-    primeAudio();
+    // MUST be inside gesture for mobile audio
+    await unlockAudio();
     await requestWakeLock();
 
     startSequencePlaying = true;
     setStatus('STARTING');
     setButtons();
     log('Start sequence playing…');
-
-    // Start on-screen 3..2..1 immediately
     startVisualCountdown();
 
-    // Play the start sequence cue. (fresh Audio instance)
-    // Then wait until it ends before starting the timer.
-    // We do this by listening to an audio element's ended event.
-    let startAudio;
+    const startAudio = SOUNDS.start;
+
+    // wait for end; if it fails, still proceed
     try {
-      if (!muted) {
-        startAudio = new Audio(SOUND_URLS.start);
-        startAudio.preload = 'auto';
-        startAudio.volume = 0.95;
-        startAudio.currentTime = 0;
-
-        await new Promise(async (resolve) => {
-          const done = () => resolve();
-          startAudio.addEventListener('ended', done, { once:true });
-          startAudio.addEventListener('error', done, { once:true });
-
-          try {
-            await startAudio.play();
-          } catch (err) {
-            console.warn('Start sound blocked/failed:', err);
-            log('Audio blocked/failed: start-sequence');
-            resolve(); // proceed so you’re not stuck
-          }
-        });
-      } else {
-        // If muted, still show the 3..2..1 for at least 3 seconds
-        await new Promise(r => setTimeout(r, VISUAL_COUNTDOWN_TOTAL_MS));
-      }
-    } catch {
-      // proceed
-    }
+      await playSound(startAudio, 'start-sequence');
+      await new Promise((resolve) => {
+        const done = () => resolve();
+        startAudio.addEventListener('ended', done, { once:true });
+        startAudio.addEventListener('error', done, { once:true });
+      });
+    } catch {}
 
     startMatch();
   }
@@ -786,7 +734,7 @@
     setButtons();
     log('Match ended. Playing end buzzer…');
 
-    await playSoundUrl(SOUND_URLS.end, 'end-buzzer');
+    await playSound(SOUNDS.end, 'end-buzzer');
     await releaseWakeLock();
 
     setTimeout(() => {
@@ -809,7 +757,7 @@
     for (const cueElapsed of DRIVER_CUES_ELAPSED_MS) {
       if (!firedDriverCues.has(cueElapsed) && elapsed >= cueElapsed) {
         firedDriverCues.add(cueElapsed);
-        playSoundUrl(SOUND_URLS.driver, 'driver-switch');
+        playSound(SOUNDS.driver, 'driver-switch');
         log(`Driver switch cue fired @ ${Math.round(cueElapsed/1000)}s elapsed.`);
       }
     }
@@ -824,9 +772,7 @@
     rafId = requestAnimationFrame(tick);
   }
 
-  // ---------------------------
-  // FULLSCREEN (tap-friendly)
-  // ---------------------------
+  // Fullscreen (tap-friendly)
   async function toggleFullscreen() {
     try {
       if (!document.fullscreenElement) {
@@ -834,15 +780,13 @@
       } else {
         await document.exitFullscreen();
       }
-    } catch {
+    } catch (e) {
       log('Fullscreen not supported on this browser (common on iPhone).');
     }
     updateFullscreenLabel();
   }
 
-  // ---------------------------
   // EVENTS
-  // ---------------------------
   startBtn.addEventListener('click', startSequenceThenMatch);
 
   pauseBtn.addEventListener('click', () => {
@@ -866,7 +810,14 @@
 
   document.addEventListener('fullscreenchange', updateFullscreenLabel);
 
-  // Keyboard shortcuts (desktop)
+  // If wake lock is active and the tab becomes visible again, re-request it
+  document.addEventListener('visibilitychange', async () => {
+    if (document.visibilityState === 'visible' && running && !wakeLock) {
+      await requestWakeLock();
+    }
+  });
+
+  // Keyboard shortcuts
   document.addEventListener('keydown', (e) => {
     const k = e.key.toLowerCase();
 
@@ -876,14 +827,13 @@
       else if (running && !paused) pauseMatch();
       else if (running && paused) resumeMatch();
     }
+
     if (k === 'r') resetAll();
     if (k === 'm') { muted = !muted; updateSoundLabel(); }
     if (k === 'f') toggleFullscreen();
   });
 
-  // ---------------------------
   // INIT
-  // ---------------------------
   updateSoundLabel();
   updateFullscreenLabel();
   updateRunBadge();
