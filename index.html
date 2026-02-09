@@ -1,0 +1,778 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>VEX IQ Match Timer (1:00)</title>
+  <style>
+    :root{
+      --bg:#0b0f17;
+      --text:#e5e7eb;
+      --muted:#9ca3af;
+      --shadow: 0 20px 60px rgba(0,0,0,.45);
+    }
+
+    *{ box-sizing:border-box; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; }
+    html,body{ height:100%; margin:0; background: radial-gradient(1200px 700px at 50% 30%, #111c33 0%, var(--bg) 60%); color:var(--text); }
+    .wrap{
+      height:100%;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding:18px;
+    }
+    .card{
+      width:min(1100px, 100%);
+      background: linear-gradient(180deg, rgba(17,24,39,.92), rgba(15,23,42,.88));
+      border:1px solid rgba(148,163,184,.20);
+      border-radius:24px;
+      box-shadow: var(--shadow);
+      overflow:hidden;
+    }
+    header{
+      display:flex;
+      gap:14px;
+      align-items:center;
+      justify-content:space-between;
+      padding:18px 20px;
+      border-bottom:1px solid rgba(148,163,184,.18);
+      background: rgba(2,6,23,.35);
+    }
+    .brand{
+      display:flex; align-items:center; gap:12px;
+      letter-spacing:.08em;
+      text-transform:uppercase;
+      font-weight:800;
+      color:var(--text);
+      opacity:.95;
+    }
+    .pill{
+      padding:6px 10px;
+      border-radius:999px;
+      font-size:12px;
+      border:1px solid rgba(148,163,184,.25);
+      color:var(--muted);
+      background: rgba(15,23,42,.55);
+      white-space:nowrap;
+    }
+
+    .main{
+      display:grid;
+      grid-template-columns: 1.35fr .65fr;
+      gap:18px;
+      padding:18px;
+    }
+
+    .timerPanel{
+      background: rgba(2,6,23,.28);
+      border:1px solid rgba(148,163,184,.18);
+      border-radius:20px;
+      padding:18px;
+      display:flex;
+      flex-direction:column;
+      gap:16px;
+      min-height:460px;
+    }
+
+    .statusRow{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      flex-wrap:wrap;
+    }
+    .status{
+      font-weight:900;
+      letter-spacing:.10em;
+      text-transform:uppercase;
+      font-size:14px;
+      color:var(--muted);
+      display:flex;
+      align-items:center;
+      gap:10px;
+    }
+    .dot{
+      width:10px; height:10px; border-radius:999px;
+      background: #64748b;
+      box-shadow: 0 0 0 6px rgba(100,116,139,.18);
+    }
+
+    .clock{
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      flex:1;
+      border-radius:18px;
+      border:1px solid rgba(148,163,184,.15);
+      background: linear-gradient(180deg, rgba(15,23,42,.55), rgba(2,6,23,.55));
+      position:relative;
+      overflow:hidden;
+      min-height:340px;
+    }
+    .clock::before{
+      content:"";
+      position:absolute;
+      inset:-40%;
+      background: conic-gradient(from 180deg, rgba(34,197,94,.15), rgba(59,130,246,.12), rgba(245,158,11,.15), rgba(239,68,68,.12), rgba(34,197,94,.15));
+      filter: blur(40px);
+      opacity:.55;
+      transform: rotate(0deg);
+      animation: spin 12s linear infinite;
+      pointer-events:none;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* BIG CLOCK */
+    .timeText{
+      position:relative;
+      z-index:2;
+      font-variant-numeric: tabular-nums;
+      font-weight:1000;
+      letter-spacing:.05em;
+      font-size: clamp(110px, 12vw, 230px);
+      text-shadow: 0 12px 40px rgba(0,0,0,.55);
+      transition: opacity .15s ease;
+    }
+
+    /* BIG START COUNTDOWN (3..2..1) */
+    .startCountdown{
+      position:absolute;
+      top:18px;
+      left:0;
+      right:0;
+      z-index:3;
+      text-align:center;
+      font-weight:1000;
+      letter-spacing:.18em;
+      text-transform:uppercase;
+      font-size: clamp(38px, 6vw, 96px);
+      color: rgba(226,232,240,.95);
+      text-shadow: 0 14px 50px rgba(0,0,0,.65);
+      opacity:0;
+      transform: translateY(-8px) scale(.98);
+      transition: opacity .12s ease, transform .12s ease;
+      pointer-events:none;
+      user-select:none;
+    }
+    .startCountdown.show{
+      opacity:1;
+      transform: translateY(0) scale(1);
+    }
+
+    .sub{
+      position:absolute;
+      bottom:14px;
+      left:16px;
+      right:16px;
+      z-index:2;
+      display:flex;
+      justify-content:space-between;
+      color:rgba(226,232,240,.78);
+      font-size:13px;
+      letter-spacing:.06em;
+      text-transform:uppercase;
+      gap:10px;
+    }
+
+    .controls{
+      display:grid;
+      grid-template-columns: 1fr 1fr;
+      gap:12px;
+      margin-top:6px;
+    }
+    button{
+      border:none;
+      border-radius:16px;
+      padding:16px 14px;
+      font-weight:900;
+      letter-spacing:.08em;
+      text-transform:uppercase;
+      cursor:pointer;
+      transition: transform .06s ease, filter .15s ease, background .2s ease;
+      user-select:none;
+    }
+    button:active{ transform: translateY(1px) scale(.99); }
+    .start{
+      grid-column:1 / -1;
+      font-size: clamp(18px, 2.2vw, 26px);
+      padding:22px 16px;
+      background: linear-gradient(180deg, rgba(34,197,94,.95), rgba(16,185,129,.92));
+      color:#052e16;
+      box-shadow: 0 14px 30px rgba(34,197,94,.18);
+    }
+    .pause{
+      background: rgba(59,130,246,.18);
+      color: #dbeafe;
+      border:1px solid rgba(59,130,246,.35);
+    }
+    .reset{
+      background: rgba(148,163,184,.12);
+      color: #e2e8f0;
+      border:1px solid rgba(148,163,184,.25);
+    }
+    .pause[disabled], .reset[disabled], .start[disabled]{
+      opacity:.5;
+      cursor:not-allowed;
+      filter:saturate(.4);
+    }
+
+    .side{
+      background: rgba(2,6,23,.28);
+      border:1px solid rgba(148,163,184,.18);
+      border-radius:20px;
+      padding:18px;
+      display:flex;
+      flex-direction:column;
+      gap:14px;
+      min-height:460px;
+    }
+    .side h2{
+      margin:0;
+      font-size:14px;
+      letter-spacing:.10em;
+      text-transform:uppercase;
+      color:rgba(226,232,240,.86);
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+    }
+    .badge{
+      padding:6px 10px;
+      border-radius:999px;
+      border:1px solid rgba(148,163,184,.22);
+      background: rgba(15,23,42,.48);
+      color: rgba(226,232,240,.9);
+      font-size:12px;
+      letter-spacing:.08em;
+      text-transform:uppercase;
+      white-space:nowrap;
+    }
+    .row{
+      display:flex;
+      justify-content:space-between;
+      padding:12px 12px;
+      border-radius:14px;
+      border:1px solid rgba(148,163,184,.15);
+      background: rgba(15,23,42,.42);
+      color: rgba(226,232,240,.92);
+      font-variant-numeric: tabular-nums;
+      gap:12px;
+    }
+    .row small{ color:var(--muted); letter-spacing:.06em; text-transform:uppercase; font-weight:800; }
+    .row strong{ font-size:16px; }
+
+    .log{
+      flex:1;
+      border-radius:14px;
+      border:1px solid rgba(148,163,184,.15);
+      background: rgba(15,23,42,.35);
+      padding:12px;
+      overflow:auto;
+      font-size:13px;
+      color: rgba(226,232,240,.86);
+      line-height:1.35;
+    }
+    .log .item{ padding:8px 8px; border-bottom:1px dashed rgba(148,163,184,.18); }
+    .log .item:last-child{ border-bottom:none; }
+
+    .kbd{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      color:var(--muted);
+      font-size:12px;
+    }
+    .kbd span{
+      border:1px solid rgba(148,163,184,.25);
+      background: rgba(15,23,42,.55);
+      border-radius:10px;
+      padding:6px 8px;
+      letter-spacing:.06em;
+      text-transform:uppercase;
+    }
+
+    @media (max-width: 900px){
+      .main{ grid-template-columns: 1fr; }
+      .timerPanel, .side{ min-height: unset; }
+      .timeText{ font-size: clamp(92px, 16vw, 200px); }
+      .clock{ min-height: 260px; }
+      .startCountdown{ top: 12px; }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="wrap">
+    <div class="card" role="application" aria-label="VEX IQ Match Timer">
+      <header>
+        <div class="brand">
+          <div style="width:10px;height:10px;border-radius:999px;background:#22c55e; box-shadow:0 0 0 6px rgba(34,197,94,.18)"></div>
+          VEX IQ Match Timer
+        </div>
+        <div class="pill">1:00 • Driver switch @ 0:25 &amp; 0:35 (elapsed)</div>
+      </header>
+
+      <div class="main">
+        <section class="timerPanel">
+          <div class="statusRow">
+            <div class="status"><span class="dot" id="statusDot"></span><span id="statusText">READY</span></div>
+            <div class="pill" id="hintPill">Press START (or Space)</div>
+          </div>
+
+          <div class="clock" aria-live="polite">
+            <div class="startCountdown" id="startCountdown">3</div>
+            <div class="timeText" id="timeText">1:00</div>
+            <div class="sub">
+              <div id="phaseText">PRE-MATCH</div>
+              <div id="soundText">SOUND: ON</div>
+            </div>
+          </div>
+
+          <div class="controls">
+            <button class="start" id="startBtn">START</button>
+            <button class="pause" id="pauseBtn" disabled>PAUSE</button>
+            <button class="reset" id="resetBtn">RESET</button>
+          </div>
+
+          <div class="kbd" aria-label="Keyboard shortcuts">
+            <span>Space: Start/Pause</span>
+            <span>R: Reset</span>
+            <span>M: Mute</span>
+            <span>F: Fullscreen</span>
+          </div>
+        </section>
+
+        <aside class="side">
+          <h2>
+            Match Events
+            <span class="badge" id="runBadge">RUN #0</span>
+          </h2>
+
+          <div class="row">
+            <small>Time remaining</small>
+            <strong id="remainLabel">01:00</strong>
+          </div>
+          <div class="row">
+            <small>Next driver cue</small>
+            <strong id="nextCueLabel">0:25</strong>
+          </div>
+
+          <div class="log" id="log" aria-label="Event log"></div>
+
+          <div class="row">
+            <small>Fullscreen</small>
+            <strong id="fsLabel">Off</strong>
+          </div>
+        </aside>
+      </div>
+    </div>
+  </div>
+
+<script>
+(() => {
+  // ---------------------------
+  // CONFIG
+  // ---------------------------
+  const MATCH_MS = 60_000;
+  const DRIVER_CUES_ELAPSED_MS = [25_000, 35_000]; // elapsed time cues
+  const AUTO_RESET_AFTER_MS = 1800;
+
+  // Visual 3..2..1 countdown timing (ms).
+  // This runs DURING the start-sequence audio, then disappears right as match starts.
+  const VISUAL_COUNTDOWN_TOTAL_MS = 3000;
+
+  // ---------------------------
+  // STATE
+  // ---------------------------
+  let running = false;
+  let paused = false;
+  let muted = false;
+
+  let startPerf = 0;      // performance.now() at match start (after start-sequence)
+  let pausedAt = 0;       // performance.now() when paused
+  let pauseAccum = 0;     // total paused duration
+  let rafId = null;
+
+  let runCount = 0;
+  let firedDriverCues = new Set();
+  let startSequencePlaying = false;
+
+  // start visual countdown timers
+  let countdownInterval = null;
+  let countdownStartPerf = 0;
+
+  // ---------------------------
+  // DOM
+  // ---------------------------
+  const timeText = document.getElementById('timeText');
+  const remainLabel = document.getElementById('remainLabel');
+  const nextCueLabel = document.getElementById('nextCueLabel');
+  const logEl = document.getElementById('log');
+
+  const startBtn = document.getElementById('startBtn');
+  const pauseBtn = document.getElementById('pauseBtn');
+  const resetBtn = document.getElementById('resetBtn');
+
+  const statusDot = document.getElementById('statusDot');
+  const statusText = document.getElementById('statusText');
+  const hintPill = document.getElementById('hintPill');
+  const phaseText = document.getElementById('phaseText');
+  const soundText = document.getElementById('soundText');
+  const fsLabel = document.getElementById('fsLabel');
+  const runBadge = document.getElementById('runBadge');
+
+  const startCountdownEl = document.getElementById('startCountdown');
+
+  // ---------------------------
+  // AUDIO (GitHub Pages relative paths)
+  // Repo layout:
+  //  /index.html
+  //  /sounds/start-sequence-cue.mp3
+  //  /sounds/driver-switch-cue.mp3
+  //  /sounds/end-buzzer-cue.mp3
+  // ---------------------------
+  const SOUNDS = {
+    start: new Audio('sounds/start-sequence-cue.mp3'),
+    driver: new Audio('sounds/driver-switch-cue.mp3'),
+    end: new Audio('sounds/end-buzzer-cue.mp3')
+  };
+
+  Object.values(SOUNDS).forEach(a => {
+    a.preload = 'auto';
+    a.volume = 0.95;
+  });
+
+  function playSound(audio) {
+    if (muted) return Promise.resolve();
+    if (!audio) return Promise.resolve();
+    try {
+      audio.currentTime = 0;
+      return audio.play();
+    } catch {
+      return Promise.resolve();
+    }
+  }
+
+  // ---------------------------
+  // HELPERS
+  // ---------------------------
+  function fmtClock(ms) {
+    ms = Math.max(0, ms);
+    const totalSec = Math.ceil(ms / 1000); // ceil feels nicer for countdown
+    const m = Math.floor(totalSec / 60);
+    const s = totalSec % 60;
+    return `${m}:${String(s).padStart(2,'0')}`;
+  }
+
+  function fmtRemainLabel(ms) {
+    ms = Math.max(0, ms);
+    const totalSec = Math.ceil(ms / 1000);
+    const m = Math.floor(totalSec / 60);
+    const s = totalSec % 60;
+    return `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+  }
+
+  function log(msg) {
+    const stamp = new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit', second:'2-digit'});
+    const div = document.createElement('div');
+    div.className = 'item';
+    div.textContent = `[${stamp}] ${msg}`;
+    logEl.prepend(div);
+  }
+
+  function setStatus(mode) {
+    statusText.textContent = mode;
+
+    const dotStyles = {
+      READY:   {bg:'#22c55e', ring:'rgba(34,197,94,.18)', hint:'Press START (or Space)'},
+      STARTING:{bg:'#a855f7', ring:'rgba(168,85,247,.20)', hint:'Start sequence + 3..2..1…'},
+      RUNNING: {bg:'#3b82f6', ring:'rgba(59,130,246,.20)', hint:'Space to pause • R to reset'},
+      PAUSED:  {bg:'#f59e0b', ring:'rgba(245,158,11,.20)', hint:'Space to resume • R to reset'},
+      ENDED:   {bg:'#ef4444', ring:'rgba(239,68,68,.20)', hint:'Auto-resetting…'}
+    };
+
+    const s = dotStyles[mode] || dotStyles.READY;
+    statusDot.style.background = s.bg;
+    statusDot.style.boxShadow = `0 0 0 6px ${s.ring}`;
+    hintPill.textContent = s.hint;
+
+    phaseText.textContent =
+      mode === 'READY' ? 'PRE-MATCH' :
+      mode === 'STARTING' ? 'START SEQUENCE' :
+      mode === 'RUNNING' ? 'MATCH' :
+      mode === 'PAUSED' ? 'PAUSED' :
+      'MATCH END';
+  }
+
+  function updateSoundLabel() {
+    soundText.textContent = `SOUND: ${muted ? 'OFF' : 'ON'}`;
+  }
+
+  function updateRunBadge() {
+    runBadge.textContent = `RUN #${runCount}`;
+  }
+
+  function updateFullscreenLabel() {
+    fsLabel.textContent = document.fullscreenElement ? 'On' : 'Off';
+  }
+
+  function setButtons() {
+    startBtn.disabled = (running && !paused) || startSequencePlaying;
+    pauseBtn.disabled = !running || startSequencePlaying;
+    pauseBtn.textContent = paused ? 'RESUME' : 'PAUSE';
+  }
+
+  function calcElapsed(nowPerf) {
+    return nowPerf - startPerf - pauseAccum;
+  }
+
+  function getNextDriverCue(elapsedMs) {
+    const future = DRIVER_CUES_ELAPSED_MS
+      .filter(t => !firedDriverCues.has(t))
+      .filter(t => t > elapsedMs)
+      .sort((a,b) => a-b);
+    return future.length ? future[0] : null;
+  }
+
+  function updateNextCueLabel(elapsedMs) {
+    const next = getNextDriverCue(elapsedMs);
+    if (!next) {
+      nextCueLabel.textContent = '—';
+      return;
+    }
+    const sec = Math.round(next / 1000);
+    nextCueLabel.textContent = `0:${String(sec).padStart(2,'0')}`;
+  }
+
+  function resetAll({silent=false} = {}) {
+    running = false;
+    paused = false;
+    startPerf = 0;
+    pausedAt = 0;
+    pauseAccum = 0;
+    firedDriverCues = new Set();
+    startSequencePlaying = false;
+
+    cancelAnimationFrame(rafId);
+    rafId = null;
+
+    stopVisualCountdown();
+
+    timeText.textContent = '1:00';
+    remainLabel.textContent = '01:00';
+    nextCueLabel.textContent = '0:25';
+
+    setStatus('READY');
+    setButtons();
+    if (!silent) log('Reset. Ready for next match.');
+  }
+
+  // ---------------------------
+  // VISUAL 3..2..1 COUNTDOWN
+  // ---------------------------
+  function startVisualCountdown() {
+    stopVisualCountdown();
+    countdownStartPerf = performance.now();
+    startCountdownEl.textContent = '3';
+    startCountdownEl.classList.add('show');
+
+    countdownInterval = setInterval(() => {
+      const elapsed = performance.now() - countdownStartPerf;
+
+      // We want: [0..1s)=3, [1..2s)=2, [2..3s)=1
+      const remainingMs = Math.max(0, VISUAL_COUNTDOWN_TOTAL_MS - elapsed);
+      const secLeft = Math.ceil(remainingMs / 1000); // 3,2,1,0
+
+      const display =
+        secLeft >= 3 ? '3' :
+        secLeft === 2 ? '2' :
+        secLeft === 1 ? '1' :
+        ''; // hide at 0
+
+      if (display) {
+        startCountdownEl.textContent = display;
+      } else {
+        // If start audio lasts longer than 3s, keep showing "1" until match starts.
+        startCountdownEl.textContent = '1';
+      }
+    }, 50);
+  }
+
+  function stopVisualCountdown() {
+    if (countdownInterval) {
+      clearInterval(countdownInterval);
+      countdownInterval = null;
+    }
+    startCountdownEl.classList.remove('show');
+    startCountdownEl.textContent = '';
+  }
+
+  // ---------------------------
+  // MATCH FLOW
+  // ---------------------------
+  async function startSequenceThenMatch() {
+    if (running || startSequencePlaying) return;
+
+    startSequencePlaying = true;
+    setStatus('STARTING');
+    setButtons();
+    log('Start sequence playing…');
+
+    // Start the on-screen 3..2..1 countdown immediately
+    startVisualCountdown();
+
+    const startAudio = SOUNDS.start;
+
+    // Wait until the start-sequence audio finishes, then start timer.
+    // If audio fails for any reason, proceed so you’re not stuck.
+    try {
+      await playSound(startAudio);
+      await new Promise((resolve) => {
+        const done = () => resolve();
+        startAudio.addEventListener('ended', done, { once:true });
+        startAudio.addEventListener('error', done, { once:true });
+      });
+    } catch {
+      // proceed
+    }
+
+    startMatch();
+  }
+
+  function startMatch() {
+    startSequencePlaying = false;
+
+    // Hide the 3..2..1 overlay right when match starts
+    stopVisualCountdown();
+
+    running = true;
+    paused = false;
+    pauseAccum = 0;
+    firedDriverCues = new Set();
+
+    runCount += 1;
+    updateRunBadge();
+
+    startPerf = performance.now();
+    setStatus('RUNNING');
+    setButtons();
+    log(`Match started. (Run #${runCount})`);
+
+    tick();
+  }
+
+  function pauseMatch() {
+    if (!running || paused || startSequencePlaying) return;
+    paused = true;
+    pausedAt = performance.now();
+    setStatus('PAUSED');
+    setButtons();
+    log('Paused.');
+  }
+
+  function resumeMatch() {
+    if (!running || !paused || startSequencePlaying) return;
+    paused = false;
+    pauseAccum += (performance.now() - pausedAt);
+    setStatus('RUNNING');
+    setButtons();
+    log('Resumed.');
+    tick();
+  }
+
+  function endMatch() {
+    running = false;
+    paused = false;
+    setStatus('ENDED');
+    setButtons();
+    log('Match ended. Playing end buzzer…');
+
+    playSound(SOUNDS.end);
+
+    setTimeout(() => {
+      resetAll({silent:true});
+      log('Auto-reset complete. Ready.');
+    }, AUTO_RESET_AFTER_MS);
+  }
+
+  function tick() {
+    if (!running || paused) return;
+
+    const now = performance.now();
+    const elapsed = calcElapsed(now);
+    const remaining = MATCH_MS - elapsed;
+
+    timeText.textContent = fmtClock(remaining);
+    remainLabel.textContent = fmtRemainLabel(remaining);
+    updateNextCueLabel(elapsed);
+
+    for (const cueElapsed of DRIVER_CUES_ELAPSED_MS) {
+      if (!firedDriverCues.has(cueElapsed) && elapsed >= cueElapsed) {
+        firedDriverCues.add(cueElapsed);
+        playSound(SOUNDS.driver);
+        log(`Driver switch cue fired @ ${Math.round(cueElapsed/1000)}s elapsed.`);
+      }
+    }
+
+    if (remaining <= 0) {
+      timeText.textContent = '0:00';
+      remainLabel.textContent = '00:00';
+      endMatch();
+      return;
+    }
+
+    rafId = requestAnimationFrame(tick);
+  }
+
+  // ---------------------------
+  // EVENTS
+  // ---------------------------
+  startBtn.addEventListener('click', () => startSequenceThenMatch());
+
+  pauseBtn.addEventListener('click', () => {
+    if (!running) return;
+    if (!paused) pauseMatch();
+    else resumeMatch();
+  });
+
+  resetBtn.addEventListener('click', () => resetAll());
+
+  document.addEventListener('keydown', (e) => {
+    const k = e.key.toLowerCase();
+
+    if (k === ' ') {
+      e.preventDefault();
+      if (!running && !startSequencePlaying) startSequenceThenMatch();
+      else if (running && !paused) pauseMatch();
+      else if (running && paused) resumeMatch();
+    }
+
+    if (k === 'r') resetAll();
+
+    if (k === 'm') {
+      muted = !muted;
+      updateSoundLabel();
+      log(`Sound ${muted ? 'muted' : 'unmuted'}.`);
+    }
+
+    if (k === 'f') {
+      if (!document.fullscreenElement) document.documentElement.requestFullscreen?.();
+      else document.exitFullscreen?.();
+    }
+  });
+
+  document.addEventListener('fullscreenchange', updateFullscreenLabel);
+
+  // ---------------------------
+  // INIT
+  // ---------------------------
+  updateSoundLabel();
+  updateFullscreenLabel();
+  updateRunBadge();
+  resetAll({silent:true});
+  log('Loaded. Press START to begin.');
+})();
+</script>
+</body>
+</html>
