@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="viewport" content="width=device-width,initial-scale=1, viewport-fit=cover" />
   <title>VEX IQ Match Timer (1:00)</title>
   <style>
     :root{
@@ -13,14 +13,26 @@
     }
 
     *{ box-sizing:border-box; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; }
-    html,body{ height:100%; margin:0; background: radial-gradient(1200px 700px at 50% 30%, #111c33 0%, var(--bg) 60%); color:var(--text); }
+    html,body{
+      margin:0;
+      background: radial-gradient(1200px 700px at 50% 30%, #111c33 0%, var(--bg) 60%);
+      color:var(--text);
+      /* IMPORTANT: allow scrolling on mobile */
+      height:auto;
+      min-height:100%;
+      overflow:auto;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    /* Use min-height: 100svh for modern mobile browser sizing */
     .wrap{
-      height:100%;
+      min-height: 100svh;
       display:flex;
       align-items:center;
       justify-content:center;
       padding:18px;
     }
+
     .card{
       width:min(1100px, 100%);
       background: linear-gradient(180deg, rgba(17,24,39,.92), rgba(15,23,42,.88));
@@ -29,6 +41,7 @@
       box-shadow: var(--shadow);
       overflow:hidden;
     }
+
     header{
       display:flex;
       gap:14px;
@@ -37,6 +50,7 @@
       padding:18px 20px;
       border-bottom:1px solid rgba(148,163,184,.18);
       background: rgba(2,6,23,.35);
+      flex-wrap:wrap;
     }
     .brand{
       display:flex; align-items:center; gap:12px;
@@ -97,6 +111,29 @@
       box-shadow: 0 0 0 6px rgba(100,116,139,.18);
     }
 
+    .actionsRow{
+      display:flex;
+      gap:10px;
+      align-items:center;
+      justify-content:flex-end;
+      flex-wrap:wrap;
+    }
+    .miniBtn{
+      border:1px solid rgba(148,163,184,.25);
+      background: rgba(15,23,42,.55);
+      color: rgba(226,232,240,.92);
+      padding:8px 10px;
+      border-radius:12px;
+      font-weight:900;
+      letter-spacing:.08em;
+      text-transform:uppercase;
+      font-size:12px;
+      cursor:pointer;
+      user-select:none;
+    }
+    .miniBtn:active{ transform: translateY(1px); }
+    .miniBtn[disabled]{ opacity:.5; cursor:not-allowed; }
+
     .clock{
       display:flex;
       align-items:center;
@@ -122,7 +159,6 @@
     }
     @keyframes spin { to { transform: rotate(360deg); } }
 
-    /* BIG CLOCK */
     .timeText{
       position:relative;
       z-index:2;
@@ -131,10 +167,8 @@
       letter-spacing:.05em;
       font-size: clamp(110px, 12vw, 230px);
       text-shadow: 0 12px 40px rgba(0,0,0,.55);
-      transition: opacity .15s ease;
     }
 
-    /* BIG START COUNTDOWN (3..2..1) */
     .startCountdown{
       position:absolute;
       top:18px;
@@ -180,7 +214,7 @@
       gap:12px;
       margin-top:6px;
     }
-    button{
+    button.big{
       border:none;
       border-radius:16px;
       padding:16px 14px;
@@ -191,7 +225,8 @@
       transition: transform .06s ease, filter .15s ease, background .2s ease;
       user-select:none;
     }
-    button:active{ transform: translateY(1px) scale(.99); }
+    button.big:active{ transform: translateY(1px) scale(.99); }
+
     .start{
       grid-column:1 / -1;
       font-size: clamp(18px, 2.2vw, 26px);
@@ -210,7 +245,7 @@
       color: #e2e8f0;
       border:1px solid rgba(148,163,184,.25);
     }
-    .pause[disabled], .reset[disabled], .start[disabled]{
+    button.big[disabled]{
       opacity:.5;
       cursor:not-allowed;
       filter:saturate(.4);
@@ -272,6 +307,7 @@
       font-size:13px;
       color: rgba(226,232,240,.86);
       line-height:1.35;
+      max-height: 260px; /* helps mobile scrolling */
     }
     .log .item{ padding:8px 8px; border-bottom:1px dashed rgba(148,163,184,.18); }
     .log .item:last-child{ border-bottom:none; }
@@ -292,11 +328,13 @@
       text-transform:uppercase;
     }
 
+    /* MOBILE: stack columns and allow content to scroll */
     @media (max-width: 900px){
+      .wrap{ align-items:flex-start; }
       .main{ grid-template-columns: 1fr; }
       .timerPanel, .side{ min-height: unset; }
       .timeText{ font-size: clamp(92px, 16vw, 200px); }
-      .clock{ min-height: 260px; }
+      .clock{ min-height: 240px; }
       .startCountdown{ top: 12px; }
     }
   </style>
@@ -317,8 +355,13 @@
         <section class="timerPanel">
           <div class="statusRow">
             <div class="status"><span class="dot" id="statusDot"></span><span id="statusText">READY</span></div>
-            <div class="pill" id="hintPill">Press START (or Space)</div>
+            <div class="actionsRow">
+              <button class="miniBtn" id="fsBtn" type="button">Fullscreen</button>
+              <button class="miniBtn" id="muteBtn" type="button">Mute</button>
+            </div>
           </div>
+
+          <div class="pill" id="hintPill">Tap START (or Space)</div>
 
           <div class="clock" aria-live="polite">
             <div class="startCountdown" id="startCountdown">3</div>
@@ -330,9 +373,9 @@
           </div>
 
           <div class="controls">
-            <button class="start" id="startBtn">START</button>
-            <button class="pause" id="pauseBtn" disabled>PAUSE</button>
-            <button class="reset" id="resetBtn">RESET</button>
+            <button class="big start" id="startBtn">START</button>
+            <button class="big pause" id="pauseBtn" disabled>PAUSE</button>
+            <button class="big reset" id="resetBtn">RESET</button>
           </div>
 
           <div class="kbd" aria-label="Keyboard shortcuts">
@@ -364,6 +407,10 @@
             <small>Fullscreen</small>
             <strong id="fsLabel">Off</strong>
           </div>
+          <div class="row">
+            <small>Wake lock</small>
+            <strong id="wlLabel">Off</strong>
+          </div>
         </aside>
       </div>
     </div>
@@ -371,40 +418,30 @@
 
 <script>
 (() => {
-  // ---------------------------
-  // CONFIG
-  // ---------------------------
   const MATCH_MS = 60_000;
-  const DRIVER_CUES_ELAPSED_MS = [25_000, 35_000]; // elapsed time cues
+  const DRIVER_CUES_ELAPSED_MS = [25_000, 35_000];
   const AUTO_RESET_AFTER_MS = 1800;
-
-  // Visual 3..2..1 countdown timing (ms).
-  // This runs DURING the start-sequence audio, then disappears right as match starts.
   const VISUAL_COUNTDOWN_TOTAL_MS = 3000;
 
-  // ---------------------------
-  // STATE
-  // ---------------------------
   let running = false;
   let paused = false;
   let muted = false;
 
-  let startPerf = 0;      // performance.now() at match start (after start-sequence)
-  let pausedAt = 0;       // performance.now() when paused
-  let pauseAccum = 0;     // total paused duration
+  let startPerf = 0;
+  let pausedAt = 0;
+  let pauseAccum = 0;
   let rafId = null;
 
   let runCount = 0;
   let firedDriverCues = new Set();
   let startSequencePlaying = false;
 
-  // start visual countdown timers
   let countdownInterval = null;
   let countdownStartPerf = 0;
 
-  // ---------------------------
-  // DOM
-  // ---------------------------
+  // Wake Lock
+  let wakeLock = null;
+
   const timeText = document.getElementById('timeText');
   const remainLabel = document.getElementById('remainLabel');
   const nextCueLabel = document.getElementById('nextCueLabel');
@@ -420,58 +457,24 @@
   const phaseText = document.getElementById('phaseText');
   const soundText = document.getElementById('soundText');
   const fsLabel = document.getElementById('fsLabel');
+  const wlLabel = document.getElementById('wlLabel');
   const runBadge = document.getElementById('runBadge');
 
   const startCountdownEl = document.getElementById('startCountdown');
+  const fsBtn = document.getElementById('fsBtn');
+  const muteBtn = document.getElementById('muteBtn');
 
-  // ---------------------------
-  // AUDIO (GitHub Pages relative paths)
-  // Repo layout:
-  //  /index.html
-  //  /sounds/start-sequence-cue.mp3
-  //  /sounds/driver-switch-cue.mp3
-  //  /sounds/end-buzzer-cue.mp3
-  // ---------------------------
+  // Audio files live next to index.html
   const SOUNDS = {
-    start: new Audio('start-sequence-cue.mp3'),
-    driver: new Audio('driver-switch-cue.mp3'),
-    end: new Audio('end-buzzer-cue.mp3')
+    start: new Audio('./start-sequence-cue.mp3'),
+    driver: new Audio('./driver-switch-cue.mp3'),
+    end: new Audio('./end-buzzer-cue.mp3')
   };
 
   Object.values(SOUNDS).forEach(a => {
     a.preload = 'auto';
     a.volume = 0.95;
   });
-
-  function playSound(audio) {
-    if (muted) return Promise.resolve();
-    if (!audio) return Promise.resolve();
-    try {
-      audio.currentTime = 0;
-      return audio.play();
-    } catch {
-      return Promise.resolve();
-    }
-  }
-
-  // ---------------------------
-  // HELPERS
-  // ---------------------------
-  function fmtClock(ms) {
-    ms = Math.max(0, ms);
-    const totalSec = Math.ceil(ms / 1000); // ceil feels nicer for countdown
-    const m = Math.floor(totalSec / 60);
-    const s = totalSec % 60;
-    return `${m}:${String(s).padStart(2,'0')}`;
-  }
-
-  function fmtRemainLabel(ms) {
-    ms = Math.max(0, ms);
-    const totalSec = Math.ceil(ms / 1000);
-    const m = Math.floor(totalSec / 60);
-    const s = totalSec % 60;
-    return `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
-  }
 
   function log(msg) {
     const stamp = new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit', second:'2-digit'});
@@ -481,17 +484,61 @@
     logEl.prepend(div);
   }
 
+  function fmtClock(ms) {
+    ms = Math.max(0, ms);
+    const totalSec = Math.ceil(ms / 1000);
+    const m = Math.floor(totalSec / 60);
+    const s = totalSec % 60;
+    return `${m}:${String(s).padStart(2,'0')}`;
+  }
+  function fmtRemainLabel(ms) {
+    ms = Math.max(0, ms);
+    const totalSec = Math.ceil(ms / 1000);
+    const m = Math.floor(totalSec / 60);
+    const s = totalSec % 60;
+    return `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+  }
+
+  async function playSound(audio, label='sound') {
+    if (muted) return true;
+    if (!audio) return false;
+    try {
+      audio.currentTime = 0;
+      await audio.play();
+      return true;
+    } catch (err) {
+      console.warn(`Audio play failed (${label}):`, err);
+      log(`Audio blocked/failed: ${label}`);
+      return false;
+    }
+  }
+
+  // Mobile trick: unlock audio on first tap by briefly playing each sound.
+  // This hugely improves "only first sound plays" on iOS/Android.
+  async function unlockAudio() {
+    // must be called inside a user gesture (Start button)
+    for (const [k, a] of Object.entries(SOUNDS)) {
+      try {
+        a.muted = true;
+        a.currentTime = 0;
+        await a.play();
+        a.pause();
+        a.muted = false;
+      } catch {
+        // ignore; we'll still try later
+      }
+    }
+  }
+
   function setStatus(mode) {
     statusText.textContent = mode;
-
     const dotStyles = {
-      READY:   {bg:'#22c55e', ring:'rgba(34,197,94,.18)', hint:'Press START (or Space)'},
+      READY:   {bg:'#22c55e', ring:'rgba(34,197,94,.18)', hint:'Tap START (or Space)'},
       STARTING:{bg:'#a855f7', ring:'rgba(168,85,247,.20)', hint:'Start sequence + 3..2..1…'},
-      RUNNING: {bg:'#3b82f6', ring:'rgba(59,130,246,.20)', hint:'Space to pause • R to reset'},
-      PAUSED:  {bg:'#f59e0b', ring:'rgba(245,158,11,.20)', hint:'Space to resume • R to reset'},
+      RUNNING: {bg:'#3b82f6', ring:'rgba(59,130,246,.20)', hint:'Tap PAUSE • R to reset'},
+      PAUSED:  {bg:'#f59e0b', ring:'rgba(245,158,11,.20)', hint:'Tap RESUME • R to reset'},
       ENDED:   {bg:'#ef4444', ring:'rgba(239,68,68,.20)', hint:'Auto-resetting…'}
     };
-
     const s = dotStyles[mode] || dotStyles.READY;
     statusDot.style.background = s.bg;
     statusDot.style.boxShadow = `0 0 0 6px ${s.ring}`;
@@ -507,6 +554,7 @@
 
   function updateSoundLabel() {
     soundText.textContent = `SOUND: ${muted ? 'OFF' : 'ON'}`;
+    muteBtn.textContent = muted ? 'Unmute' : 'Mute';
   }
 
   function updateRunBadge() {
@@ -515,6 +563,7 @@
 
   function updateFullscreenLabel() {
     fsLabel.textContent = document.fullscreenElement ? 'On' : 'Off';
+    fsBtn.textContent = document.fullscreenElement ? 'Exit Fullscreen' : 'Fullscreen';
   }
 
   function setButtons() {
@@ -537,12 +586,55 @@
 
   function updateNextCueLabel(elapsedMs) {
     const next = getNextDriverCue(elapsedMs);
-    if (!next) {
-      nextCueLabel.textContent = '—';
-      return;
-    }
+    if (!next) { nextCueLabel.textContent = '—'; return; }
     const sec = Math.round(next / 1000);
     nextCueLabel.textContent = `0:${String(sec).padStart(2,'0')}`;
+  }
+
+  // Wake lock
+  async function requestWakeLock() {
+    try {
+      if (!('wakeLock' in navigator)) {
+        wlLabel.textContent = 'Unsupported';
+        return;
+      }
+      wakeLock = await navigator.wakeLock.request('screen');
+      wlLabel.textContent = 'On';
+      wakeLock.addEventListener('release', () => { wlLabel.textContent = 'Off'; });
+    } catch (e) {
+      wlLabel.textContent = 'Blocked';
+      log('Wake Lock blocked (ok on iOS).');
+    }
+  }
+  async function releaseWakeLock() {
+    try { await wakeLock?.release(); } catch {}
+    wakeLock = null;
+    if (wlLabel.textContent === 'On') wlLabel.textContent = 'Off';
+  }
+
+  // Visual countdown
+  function startVisualCountdown() {
+    stopVisualCountdown();
+    countdownStartPerf = performance.now();
+    startCountdownEl.textContent = '3';
+    startCountdownEl.classList.add('show');
+
+    countdownInterval = setInterval(() => {
+      const elapsed = performance.now() - countdownStartPerf;
+      const remainingMs = Math.max(0, VISUAL_COUNTDOWN_TOTAL_MS - elapsed);
+      const secLeft = Math.ceil(remainingMs / 1000); // 3,2,1,0
+
+      if (secLeft >= 3) startCountdownEl.textContent = '3';
+      else if (secLeft === 2) startCountdownEl.textContent = '2';
+      else startCountdownEl.textContent = '1'; // hold 1 until match starts
+    }, 50);
+  }
+
+  function stopVisualCountdown() {
+    if (countdownInterval) clearInterval(countdownInterval);
+    countdownInterval = null;
+    startCountdownEl.classList.remove('show');
+    startCountdownEl.textContent = '';
   }
 
   function resetAll({silent=false} = {}) {
@@ -568,82 +660,36 @@
     if (!silent) log('Reset. Ready for next match.');
   }
 
-  // ---------------------------
-  // VISUAL 3..2..1 COUNTDOWN
-  // ---------------------------
-  function startVisualCountdown() {
-    stopVisualCountdown();
-    countdownStartPerf = performance.now();
-    startCountdownEl.textContent = '3';
-    startCountdownEl.classList.add('show');
-
-    countdownInterval = setInterval(() => {
-      const elapsed = performance.now() - countdownStartPerf;
-
-      // We want: [0..1s)=3, [1..2s)=2, [2..3s)=1
-      const remainingMs = Math.max(0, VISUAL_COUNTDOWN_TOTAL_MS - elapsed);
-      const secLeft = Math.ceil(remainingMs / 1000); // 3,2,1,0
-
-      const display =
-        secLeft >= 3 ? '3' :
-        secLeft === 2 ? '2' :
-        secLeft === 1 ? '1' :
-        ''; // hide at 0
-
-      if (display) {
-        startCountdownEl.textContent = display;
-      } else {
-        // If start audio lasts longer than 3s, keep showing "1" until match starts.
-        startCountdownEl.textContent = '1';
-      }
-    }, 50);
-  }
-
-  function stopVisualCountdown() {
-    if (countdownInterval) {
-      clearInterval(countdownInterval);
-      countdownInterval = null;
-    }
-    startCountdownEl.classList.remove('show');
-    startCountdownEl.textContent = '';
-  }
-
-  // ---------------------------
-  // MATCH FLOW
-  // ---------------------------
   async function startSequenceThenMatch() {
     if (running || startSequencePlaying) return;
+
+    // MUST be inside gesture for mobile audio
+    await unlockAudio();
+    await requestWakeLock();
 
     startSequencePlaying = true;
     setStatus('STARTING');
     setButtons();
     log('Start sequence playing…');
-
-    // Start the on-screen 3..2..1 countdown immediately
     startVisualCountdown();
 
     const startAudio = SOUNDS.start;
 
-    // Wait until the start-sequence audio finishes, then start timer.
-    // If audio fails for any reason, proceed so you’re not stuck.
+    // wait for end; if it fails, still proceed
     try {
-      await playSound(startAudio);
+      await playSound(startAudio, 'start-sequence');
       await new Promise((resolve) => {
         const done = () => resolve();
         startAudio.addEventListener('ended', done, { once:true });
         startAudio.addEventListener('error', done, { once:true });
       });
-    } catch {
-      // proceed
-    }
+    } catch {}
 
     startMatch();
   }
 
   function startMatch() {
     startSequencePlaying = false;
-
-    // Hide the 3..2..1 overlay right when match starts
     stopVisualCountdown();
 
     running = true;
@@ -681,14 +727,15 @@
     tick();
   }
 
-  function endMatch() {
+  async function endMatch() {
     running = false;
     paused = false;
     setStatus('ENDED');
     setButtons();
     log('Match ended. Playing end buzzer…');
 
-    playSound(SOUNDS.end);
+    await playSound(SOUNDS.end, 'end-buzzer');
+    await releaseWakeLock();
 
     setTimeout(() => {
       resetAll({silent:true});
@@ -710,7 +757,7 @@
     for (const cueElapsed of DRIVER_CUES_ELAPSED_MS) {
       if (!firedDriverCues.has(cueElapsed) && elapsed >= cueElapsed) {
         firedDriverCues.add(cueElapsed);
-        playSound(SOUNDS.driver);
+        playSound(SOUNDS.driver, 'driver-switch');
         log(`Driver switch cue fired @ ${Math.round(cueElapsed/1000)}s elapsed.`);
       }
     }
@@ -725,10 +772,22 @@
     rafId = requestAnimationFrame(tick);
   }
 
-  // ---------------------------
+  // Fullscreen (tap-friendly)
+  async function toggleFullscreen() {
+    try {
+      if (!document.fullscreenElement) {
+        await document.documentElement.requestFullscreen();
+      } else {
+        await document.exitFullscreen();
+      }
+    } catch (e) {
+      log('Fullscreen not supported on this browser (common on iPhone).');
+    }
+    updateFullscreenLabel();
+  }
+
   // EVENTS
-  // ---------------------------
-  startBtn.addEventListener('click', () => startSequenceThenMatch());
+  startBtn.addEventListener('click', startSequenceThenMatch);
 
   pauseBtn.addEventListener('click', () => {
     if (!running) return;
@@ -736,8 +795,29 @@
     else resumeMatch();
   });
 
-  resetBtn.addEventListener('click', () => resetAll());
+  resetBtn.addEventListener('click', async () => {
+    resetAll();
+    await releaseWakeLock();
+  });
 
+  fsBtn.addEventListener('click', toggleFullscreen);
+
+  muteBtn.addEventListener('click', () => {
+    muted = !muted;
+    updateSoundLabel();
+    log(`Sound ${muted ? 'muted' : 'unmuted'}.`);
+  });
+
+  document.addEventListener('fullscreenchange', updateFullscreenLabel);
+
+  // If wake lock is active and the tab becomes visible again, re-request it
+  document.addEventListener('visibilitychange', async () => {
+    if (document.visibilityState === 'visible' && running && !wakeLock) {
+      await requestWakeLock();
+    }
+  });
+
+  // Keyboard shortcuts
   document.addEventListener('keydown', (e) => {
     const k = e.key.toLowerCase();
 
@@ -749,29 +829,16 @@
     }
 
     if (k === 'r') resetAll();
-
-    if (k === 'm') {
-      muted = !muted;
-      updateSoundLabel();
-      log(`Sound ${muted ? 'muted' : 'unmuted'}.`);
-    }
-
-    if (k === 'f') {
-      if (!document.fullscreenElement) document.documentElement.requestFullscreen?.();
-      else document.exitFullscreen?.();
-    }
+    if (k === 'm') { muted = !muted; updateSoundLabel(); }
+    if (k === 'f') toggleFullscreen();
   });
 
-  document.addEventListener('fullscreenchange', updateFullscreenLabel);
-
-  // ---------------------------
   // INIT
-  // ---------------------------
   updateSoundLabel();
   updateFullscreenLabel();
   updateRunBadge();
   resetAll({silent:true});
-  log('Loaded. Press START to begin.');
+  log('Loaded. Tap START to begin.');
 })();
 </script>
 </body>
